@@ -182,12 +182,6 @@
             z-index: 5;
         }
 
-        .empty-piece {
-            background-color: var(--light);
-            border: 2px dashed var(--secondary);
-            opacity: 0.7;
-        }
-
         .complete-overlay {
             position: absolute;
             top: 0;
@@ -283,32 +277,6 @@
             box-shadow: 0 2px 0 #cc9e00;
         }
 
-        .confetti-container {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            z-index: 1000;
-            overflow: hidden;
-        }
-        
-        .confetti {
-            position: absolute;
-            width: 10px;
-            height: 10px;
-            opacity: 0;
-            animation: fall 3s linear forwards;
-        }
-        
-        @keyframes fall {
-            to {
-                transform: translateY(100vh) rotate(360deg);
-                opacity: 0;
-            }
-        }
-
         footer {
             background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
             color: white;
@@ -388,7 +356,7 @@
         <section class="game-container">
             <div class="game-header">
                 <h1><i class="fas fa-puzzle-piece"></i> Puzzle Master</h1>
-                <p>Slide the pieces to complete the puzzle in the fewest moves!</p>
+                <p>Click on pieces to swap them and complete the puzzle!</p>
             </div>
 
             <div class="image-selector">
@@ -513,7 +481,7 @@
         
         let userId = '';
         let pieces = [];
-        let emptyPos = { row: 2, col: 2 }; // For 3x3 grid
+        let selectedPiece = null;
         let moves = 0;
         let timer = 0;
         let timerInterval;
@@ -529,6 +497,7 @@
             
             // Reset game state
             pieces = [];
+            selectedPiece = null;
             moves = 0;
             timer = 0;
             gameActive = false;
@@ -543,12 +512,6 @@
             // Create puzzle pieces
             for (let row = 0; row < 3; row++) {
                 for (let col = 0; col < 3; col++) {
-                    // Skip the empty piece (bottom-right corner)
-                    if (row === 2 && col === 2) {
-                        emptyPos = { row, col };
-                        continue;
-                    }
-                    
                     const piece = document.createElement('div');
                     piece.className = 'puzzle-piece';
                     piece.dataset.row = row;
@@ -563,7 +526,7 @@
                     piece.style.left = `${col * pieceSize}px`;
                     piece.style.top = `${row * pieceSize}px`;
                     
-                    piece.addEventListener('click', movePiece);
+                    piece.addEventListener('click', handlePieceClick);
                     puzzleContainer.appendChild(piece);
                     
                     pieces.push({
@@ -575,15 +538,6 @@
                     });
                 }
             }
-            
-            // Add empty piece
-            const emptyPiece = document.createElement('div');
-            emptyPiece.className = 'puzzle-piece empty-piece';
-            emptyPiece.dataset.row = 2;
-            emptyPiece.dataset.col = 2;
-            emptyPiece.style.left = `${2 * pieceSize}px`;
-            emptyPiece.style.top = `${2 * pieceSize}px`;
-            puzzleContainer.appendChild(emptyPiece);
             
             // Shuffle the puzzle
             shufflePuzzle();
@@ -598,36 +552,29 @@
             }, 1000);
         }
 
-        // Shuffle the puzzle
-        function shufflePuzzle() {
-            // Perform many random moves to shuffle
-            for (let i = 0; i < 200; i++) {
-                const adjacentPieces = getAdjacentPieces();
-                if (adjacentPieces.length > 0) {
-                    const randomPiece = adjacentPieces[Math.floor(Math.random() * adjacentPieces.length)];
-                    swapWithEmpty(randomPiece, false);
-                }
-            }
-            
-            // Reset moves
-            moves = 0;
-            movesDisplay.textContent = moves;
-        }
-
-        // Move piece when clicked
-        function movePiece() {
+        // Handle piece click
+        function handlePieceClick() {
             if (!gameActive) return;
             
             const row = parseInt(this.dataset.row);
             const col = parseInt(this.dataset.col);
+            const piece = pieces.find(p => p.row === row && p.col === col);
             
-            // Check if piece is adjacent to empty space
-            if (
-                (Math.abs(row - emptyPos.row) === 1 && col === emptyPos.col) || 
-                (Math.abs(col - emptyPos.col) === 1 && row === emptyPos.row)
-            ) {
-                const piece = pieces.find(p => p.row === row && p.col === col);
-                swapWithEmpty(piece, true);
+            if (!selectedPiece) {
+                // First piece selected
+                selectedPiece = piece;
+                this.style.boxShadow = '0 0 0 4px var(--accent)';
+            } else if (selectedPiece === piece) {
+                // Same piece clicked again - deselect
+                selectedPiece = null;
+                this.style.boxShadow = '0 3px 6px rgba(0, 0, 0, 0.1)';
+            } else {
+                // Swap the two pieces
+                swapPieces(selectedPiece, piece);
+                
+                // Reset selection
+                selectedPiece.element.style.boxShadow = '0 3px 6px rgba(0, 0, 0, 0.1)';
+                selectedPiece = null;
                 
                 // Check if puzzle is complete
                 if (checkCompletion()) {
@@ -636,38 +583,54 @@
             }
         }
 
-        // Swap piece with empty space
-        function swapWithEmpty(piece, countMove) {
-            // Swap positions
-            const tempRow = piece.row;
-            const tempCol = piece.col;
+        // Swap two pieces
+        function swapPieces(piece1, piece2) {
+            // Swap positions in the array
+            const tempRow = piece1.row;
+            const tempCol = piece1.col;
             
-            piece.element.style.left = `${emptyPos.col * pieceSize}px`;
-            piece.element.style.top = `${emptyPos.row * pieceSize}px`;
-            piece.element.dataset.row = emptyPos.row;
-            piece.element.dataset.col = emptyPos.col;
+            // Update first piece
+            piece1.row = piece2.row;
+            piece1.col = piece2.col;
+            piece1.element.style.left = `${piece2.col * pieceSize}px`;
+            piece1.element.style.top = `${piece2.row * pieceSize}px`;
+            piece1.element.dataset.row = piece2.row;
+            piece1.element.dataset.col = piece2.col;
             
-            piece.row = emptyPos.row;
-            piece.col = emptyPos.col;
-            
-            emptyPos.row = tempRow;
-            emptyPos.col = tempCol;
+            // Update second piece
+            piece2.row = tempRow;
+            piece2.col = tempCol;
+            piece2.element.style.left = `${tempCol * pieceSize}px`;
+            piece2.element.style.top = `${tempRow * pieceSize}px`;
+            piece2.element.dataset.row = tempRow;
+            piece2.element.dataset.col = tempCol;
             
             // Increment move count
-            if (countMove) {
-                moves++;
-                movesDisplay.textContent = moves;
-            }
+            moves++;
+            movesDisplay.textContent = moves;
         }
 
-        // Get pieces adjacent to empty space
-        function getAdjacentPieces() {
-            return pieces.filter(piece => {
-                return (
-                    (Math.abs(piece.row - emptyPos.row) === 1 && piece.col === emptyPos.col) || 
-                    (Math.abs(piece.col - emptyPos.col) === 1 && piece.row === emptyPos.row)
-                );
-            });
+        // Shuffle the puzzle
+        function shufflePuzzle() {
+            // Reset selection if any
+            if (selectedPiece) {
+                selectedPiece.element.style.boxShadow = '0 3px 6px rgba(0, 0, 0, 0.1)';
+                selectedPiece = null;
+            }
+            
+            // Perform many random swaps to shuffle
+            for (let i = 0; i < 100; i++) {
+                const randomIndex1 = Math.floor(Math.random() * pieces.length);
+                const randomIndex2 = Math.floor(Math.random() * pieces.length);
+                
+                if (randomIndex1 !== randomIndex2) {
+                    swapPieces(pieces[randomIndex1], pieces[randomIndex2]);
+                }
+            }
+            
+            // Reset moves
+            moves = 0;
+            movesDisplay.textContent = moves;
         }
 
         // Check if puzzle is complete
@@ -678,58 +641,12 @@
             );
         }
 
-        // Create confetti effect
-        function createConfetti() {
-            const colors = ['#8a2be2', '#ff6b6b', '#4CAF50', '#FFC107', '#03A9F4'];
-            
-            for (let i = 0; i < 100; i++) {
-                const confetti = document.createElement('div');
-                confetti.className = 'confetti';
-                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-                confetti.style.left = Math.random() * 100 + '%';
-                confetti.style.top = Math.random() * 100 + '%';
-                confetti.style.width = Math.random() * 10 + 5 + 'px';
-                confetti.style.height = Math.random() * 10 + 5 + 'px';
-                confetti.style.transform = `rotate(${Math.random() * 360}deg)`;
-                
-                confettiContainer.appendChild(confetti);
-                
-                // Animate confetti
-                const animationDuration = Math.random() * 3 + 2;
-                confetti.style.animation = `fall ${animationDuration}s linear forwards`;
-                
-                // Create keyframes for falling animation
-                const keyframes = `
-                    @keyframes fall {
-                        to {
-                            transform: translateY(100vh) rotate(${Math.random() * 360}deg);
-                            opacity: 0;
-                        }
-                    }
-                `;
-                
-                const style = document.createElement('style');
-                style.innerHTML = keyframes;
-                document.head.appendChild(style);
-                
-                // Show confetti
-                setTimeout(() => {
-                    confetti.style.opacity = '1';
-                }, 10);
-                
-                // Remove confetti after animation
-                setTimeout(() => {
-                    confetti.remove();
-                }, animationDuration * 1000);
-            }
-        }
-
         // Game complete function
         function gameComplete() {
             gameActive = false;
             clearInterval(timerInterval);
             
-            // Calculate score (lower is better)
+            // Calculate score
             const score = Math.floor((moves * timer) / 2);
             
             // Update final stats
@@ -739,10 +656,7 @@
             
             // Show completion overlay
             completeOverlay.style.display = 'flex';
-            
-            // Create confetti effect
-            createConfetti();
-            
+                        
             // Save score
             saveScore(score);
         }
