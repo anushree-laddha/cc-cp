@@ -28,7 +28,7 @@
             overflow-x: hidden;
         }
 
-        /* Header with fun gradient */
+        /* Header */
         header {
             background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
             padding: 15px 0;
@@ -243,7 +243,7 @@
             }
         }
 
-        /* Footer with fun pattern */
+        /* Footer */
         footer {
             background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
             color: white;
@@ -473,7 +473,7 @@
         }
 
     // Show leaderboard for a specific game
-async function showLeaderboard(gameName) {
+    async function showLeaderboard(gameName) {
     const leaderboardBody = document.getElementById('leaderboardBody');
     const loadingDiv = document.getElementById('loading');
     const noDataDiv = document.getElementById('noData');
@@ -488,24 +488,30 @@ async function showLeaderboard(gameName) {
     try {
         // Different query based on game type
         let query;
-        if (['Word Guess', 'Number Guess'].includes(gameName)) {
-            // For these games, lower score is better
-            query = db.collection('scores')
-                .where('gameName', '==', gameName)
-                .orderBy('score', 'asc')
-                .limit(100);
-        } else if (gameName === 'Tic Tac Toe') {
-            // For Tic Tac Toe, we'll show win percentage
-            query = db.collection('scores')
-                .where('gameName', '==', gameName)
-                .limit(100);
-        } else {
-            // For other games, higher score is better
-            query = db.collection('scores')
-                .where('gameName', '==', gameName)
-                .orderBy('score', 'desc')
-                .limit(100);
-        }
+        if (gameName === 'Memory') {
+        // For Memory - lower scores are better
+        query = db.collection('scores')
+            .where('gameName', '==', gameName)
+            .orderBy('score', 'asc')
+            .limit(100);
+    } else if (gameName === 'Number Guess') {
+        // For Number Guess - higher scores are better
+        query = db.collection('scores')
+            .where('gameName', '==', gameName)
+            .orderBy('score', 'desc')
+            .limit(100);
+    } else if (gameName === 'Tic Tac Toe') {
+        // For Tic Tac Toe - show win percentage
+        query = db.collection('scores')
+            .where('gameName', '==', gameName)
+            .limit(100);
+    } else {
+        // Default for other games
+        query = db.collection('scores')
+            .where('gameName', '==', gameName)
+            .orderBy('score', 'desc')
+            .limit(100);
+    }
 
         const querySnapshot = await query.get();
 
@@ -529,7 +535,7 @@ async function showLeaderboard(gameName) {
             const userData = userStats.get(userId);
             userData.scores.push(data.score || 0);
             
-            // For Tic Tac Toe, track wins/losses/draws
+            // For Tic Tac Toe
             if (gameName === 'Tic Tac Toe') {
                 if (data.result === 'win') userData.wins++;
                 else if (data.result === 'loss') userData.losses++;
@@ -541,7 +547,7 @@ async function showLeaderboard(gameName) {
         let leaderboardData = [];
         
         if (gameName === 'Tic Tac Toe') {
-            // For Tic Tac Toe, calculate win percentage
+            // calculate win percentage
             userStats.forEach(userData => {
                 const totalGames = userData.wins + userData.losses + userData.draws;
                 const winPercentage = totalGames > 0 ? 
@@ -555,10 +561,10 @@ async function showLeaderboard(gameName) {
                 });
             });
             
-            // Sort by win percentage (descending)
+            // descending
             leaderboardData.sort((a, b) => b.score - a.score);
         } else {
-            // For other games, use average score
+            // For other games use average score
             userStats.forEach(userData => {
                 const avgScore = userData.scores.length > 0 ?
                     Math.round(userData.scores.reduce((a, b) => a + b, 0) / userData.scores.length) : 0;
@@ -568,12 +574,17 @@ async function showLeaderboard(gameName) {
                 });
             });
             
-            // Sort by score (direction depends on game)
-            if (['Word Guess', 'Number Guess'].includes(gameName)) {
-                leaderboardData.sort((a, b) => a.score - b.score);
-            } else {
-                leaderboardData.sort((a, b) => b.score - a.score);
-            }
+            // Sort by score
+            if (gameName === 'Memory') {
+            leaderboardData.sort((a, b) => a.score - b.score);
+        } else if (gameName === 'Number Guess') {
+            leaderboardData.sort((a, b) => b.score - a.score);
+        } else if (gameName === 'Tic Tac Toe') {
+            leaderboardData.sort((a, b) => b.score - a.score);
+        } else {
+            // Default for other games
+            leaderboardData.sort((a, b) => b.score - a.score);
+        }
         }
 
         // Take top 10
@@ -585,7 +596,7 @@ async function showLeaderboard(gameName) {
             return;
         }
 
-        // Get user data in batch - changed from 'username' to 'name'
+        // Get user data
         const userIds = leaderboardData.map(item => item.userId);
         const userDocs = await db.collection('users')
             .where(firebase.firestore.FieldPath.documentId(), 'in', userIds)
@@ -593,7 +604,6 @@ async function showLeaderboard(gameName) {
 
         const userMap = new Map();
         userDocs.forEach(doc => {
-            // Changed from doc.data().username to doc.data().name
             userMap.set(doc.id, doc.data().name || `Player ${doc.id.substring(0, 6)}`);
         });
 
@@ -609,7 +619,9 @@ async function showLeaderboard(gameName) {
             let scoreDisplay = data.score;
             if (gameName === 'Tic Tac Toe') {
                 scoreDisplay = `${data.score}% (${data.wins}W ${data.losses}L ${data.draws}D)`;
-            } else if (['Word Guess', 'Number Guess'].includes(gameName)) {
+            } else if (gameName === 'Memory') {
+                scoreDisplay = data.score;
+            } else {
                 scoreDisplay = data.score;
             }
             
