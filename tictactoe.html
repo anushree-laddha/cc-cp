@@ -418,7 +418,7 @@
                     statusDisplay.textContent = currentPlayer === 'X' ? 
                         `Your turn (${currentPlayer})` : `AI's turn (${currentPlayer})`;
                     
-                    // AI move if it's O's turn
+                    // O's turn
                     if (currentPlayer === 'O') {
                         setTimeout(makeAIMove, 500);
                     }
@@ -426,38 +426,108 @@
             }
         }
 
-        // Make AI move
-        function makeAIMove() {
-            if (!gameActive) return;
+        // Minimax algorithm implementation
+        function minimax(newBoard, player) {
+            // Available spots
+            const availSpots = newBoard.reduce((acc, val, idx) => {
+                if (val === '') acc.push(idx);
+                return acc;
+            }, []);
             
-            // Simple AI - random empty cell
-            let emptyCells = [];
-            for (let i = 0; i < 9; i++) {
-                if (board[i] === '') {
-                    emptyCells.push(i);
+            // Check for terminal states
+            if (checkWin(newBoard, 'X')) {
+                return {score: -10};
+            } else if (checkWin(newBoard, 'O')) {
+                return {score: 10};
+            } else if (availSpots.length === 0) {
+                return {score: 0};
+            }
+            
+            // Array to collect all moves
+            const moves = [];
+            
+            // Loop through available spots
+            for (let i = 0; i < availSpots.length; i++) {
+                const move = {};
+                move.index = availSpots[i];
+                
+                // Set the empty spot to the current player
+                newBoard[availSpots[i]] = player;
+                
+                // Collect the score resulting from the opponent's move
+                if (player === 'O') {
+                    const result = minimax(newBoard, 'X');
+                    move.score = result.score;
+                } else {
+                    const result = minimax(newBoard, 'O');
+                    move.score = result.score;
+                }
+                
+                // Reset the spot to empty
+                newBoard[availSpots[i]] = '';
+                
+                // Push the move to moves array
+                moves.push(move);
+            }
+            
+            // Choose the best move
+            let bestMove;
+            if (player === 'O') {
+                let bestScore = -Infinity;
+                for (let i = 0; i < moves.length; i++) {
+                    if (moves[i].score > bestScore) {
+                        bestScore = moves[i].score;
+                        bestMove = i;
+                    }
+                }
+            } else {
+                let bestScore = Infinity;
+                for (let i = 0; i < moves.length; i++) {
+                    if (moves[i].score < bestScore) {
+                        bestScore = moves[i].score;
+                        bestMove = i;
+                    }
                 }
             }
             
-            if (emptyCells.length > 0) {
-                const randomIndex = Math.floor(Math.random() * emptyCells.length);
-                const aiMove = emptyCells[randomIndex];
-                
-                board[aiMove] = 'O';
-                const cells = document.querySelectorAll('.cell');
-                cells[aiMove].textContent = 'O';
-                cells[aiMove].classList.add('o');
-                
-                // Check for win or draw
-                const result = checkResult();
-                if (result === 'win') {
-                    handleWin();
-                } else if (result === 'draw') {
-                    handleDraw();
-                } else {
-                    // Switch back to player
-                    currentPlayer = 'X';
-                    statusDisplay.textContent = `Your turn (${currentPlayer})`;
+            // Return the best move
+            return moves[bestMove];
+        }
+
+        // Helper function to check for win
+        function checkWin(board, player) {
+            for (let i = 0; i < winningConditions.length; i++) {
+                const [a, b, c] = winningConditions[i];
+                if (board[a] === player && board[b] === player && board[c] === player) {
+                    return true;
                 }
+            }
+            return false;
+        }
+
+        // Make AI move using Minimax
+        function makeAIMove() {
+            if (!gameActive) return;
+            
+            // Get the best move using Minimax
+            const bestMove = minimax([...board], 'O');
+            
+            // Make the move
+            board[bestMove.index] = 'O';
+            const cells = document.querySelectorAll('.cell');
+            cells[bestMove.index].textContent = 'O';
+            cells[bestMove.index].classList.add('o');
+            
+            // Check for win or draw
+            const result = checkResult();
+            if (result === 'win') {
+                handleWin();
+            } else if (result === 'draw') {
+                handleDraw();
+            } else {
+                // Switch back to player
+                currentPlayer = 'X';
+                statusDisplay.textContent = `Your turn (${currentPlayer})`;
             }
         }
 
